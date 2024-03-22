@@ -12,6 +12,9 @@ const EventModel = new mongoose.Schema({
     formGoal: {
         type: String,
         required: true
+    },
+    assistantId: {
+        type: String
     }
 })
 
