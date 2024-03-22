@@ -208,7 +208,7 @@ const conversateWithAssistant = async (req, res) => {
             const conversationResponse = await _conversationHelper(
                 user,
                 assistantId,
-                req.body?.promptText
+                req.body?.prompt
             )
 
             return res.status(200).send({ response: conversationResponse })
@@ -217,7 +217,7 @@ const conversateWithAssistant = async (req, res) => {
         const conversationResponse = await _conversationHelper(
             user,
             event.assistantId,
-            req.body?.promptText
+            req.body?.prompt
         )
 
         return res.status(200).send({ response: conversationResponse })

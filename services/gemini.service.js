@@ -1,5 +1,6 @@
 const geminiModel = require("../llms/gemini.llm")
 const ChatHistoryModel = require("../models/chatHistory.model")
+const EventModel = require("../models/event.model")
 const EventQuestionModel = require("../models/eventQuestion.model")
 const UserModel = require("../models/user.model")
 const { transformChatHistory } = require("../utils/history.util")
@@ -91,16 +92,11 @@ const chatWithGeminiModel = async (req, res) => {
             .select("-_id")
 
         if (!chatHistory || chatHistory.length === 0) {
-            if (
-                !req.body?.eventName ||
-                !req.body?.eventDescription ||
-                !req.body?.formGoal
-            ) {
-                return res.status(400).send("When starting a new conversation, you need to provide event name, description and form goal")
-            }
+            const event = await EventModel
+                .findById(req.params?.eventId)
 
-            const promptText = "Given " + req.body?.eventName + " as event name and " + req.body?.eventDescription + " as event description" +
-                " and " + req.body?.formGoal + " as goal for the feedback form. Given these things you have to" +
+            const promptText = "Given " + event?.eventName + " as event name and " + event.eventDescription + " as event description" +
+                " and " + event.formGoal + " as goal for the feedback form. Given these things you have to" +
                 " generate a set of questions (atleast 7) that will be asked from the event attendees. The" +
                 " user can ask you to add, remove and/or modify questions. Your responses should include the previous generated questions" +
                 " (if there are any) + the newly generated questions and nothing else like affirmations or acknowledgement. I am repeating," +
