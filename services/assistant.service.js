@@ -1,9 +1,12 @@
 const EventModel = require("../models/event.model")
-const openAI = require("../llms/openai.llm")
+const { openAI } = require("../llms/openai.llm")
 const UserModel = require("../models/user.model")
 const EventQuestionModel = require("../models/eventQuestion.model")
 const { writeFile, deleteFile } = require("../utils/file.util")
 const fs = require("fs")
+const geminiModel = require("../llms/gemini.llm")
+const chatHistoryModel = require("../models/chatHistory.model")
+const analysisModel = require("../models/analysis.model")
 
 const _createNewThreadForUser = async (user) => {
     try {
@@ -73,7 +76,7 @@ const _bindQuestionsWithAssistant = async (eventId, assistantId, eventQuestions)
     }
 }
 
-const _addMessageInThreadAndRun = async (user, promptText, threadId, assistantId) => {
+const _addMessageInThreadAndRun = async (user, event, promptText, threadId, assistantId) => {
     try {
         await openAI.beta.threads.messages.create(
             threadId,
@@ -115,7 +118,32 @@ const _addMessageInThreadAndRun = async (user, promptText, threadId, assistantId
 
         // Not good lol but we need to store the answers somehow
         if(assistantResponse?.content[0]?.text?.value?.includes("Thank you very much for the feedback")) {
-            user.finalAnswers = assistantResponse?.content[0]?.text?.value?.split("Thank you very much for the feedback")[1]
+            const answers = assistantResponse?.content[0]?.text?.value?.split("Thank you very much for the feedback")[1]
+
+            const chat = geminiModel.startChat({
+                generationConfig: {
+                    maxOutputTokens: 512
+                }
+            })
+    
+            const result = await chat.sendMessage(
+                "Given these " + answers + " as questions and their answers." +
+                " Can you perform sentiment analysis of each answer and append " +
+                " the sentiment after each answer as [SENTIMENT] where sentiment " +
+                " can be POSITIVE, NEGATIVE or NEUTRAL. Please donot include " +
+                " any affirmations or acknowledgement and return the response in this " +
+                " format: QUESTION: question-text\nANSWER: answer-text [SENTIMENT]\n\n"
+            )
+            const response = await result.response
+
+            // Store the answers and their sentiment in the database
+            await analysisModel.create({
+                eventId: event._id,
+                userId: user._id,
+                answersWithSentiment: response.text()
+            })
+
+            user.finalAnswers = answers
             await user.save()
         }
 
@@ -127,7 +155,7 @@ const _addMessageInThreadAndRun = async (user, promptText, threadId, assistantId
     }
 }
 
-const _conversationHelper = async (user, assistantId, promptText) => {
+const _conversationHelper = async (user, event, assistantId, promptText) => {
     try {
         if(!user.threadId) {
             const newThreadId = await _createNewThreadForUser(user)
@@ -137,6 +165,7 @@ const _conversationHelper = async (user, assistantId, promptText) => {
 
             const assistantResponse = await _addMessageInThreadAndRun(
                 user,
+                event,
                 promptText,
                 user.threadId,
                 assistantId
@@ -147,12 +176,34 @@ const _conversationHelper = async (user, assistantId, promptText) => {
 
         const assistantResponse = await _addMessageInThreadAndRun(
             user,
+            event,
             promptText,
             user.threadId,
             assistantId
         )
 
         return assistantResponse
+    }
+    catch(err) {
+        console.error(err)
+        return res.sendStatus(500)
+    }
+}
+
+const getUserChat = async (req, res) => {
+    try {
+        const userChat = await chatHistoryModel
+            .find({
+                eventId: req.params?.eventId,
+                userId: req.params?.userId
+            })
+            .skip(1)
+            .select("-_id -__v -userId -eventId")
+            .lean()
+
+        return res.status(200).send({
+            chatHistory: userChat
+        })
     }
     catch(err) {
         console.error(err)
@@ -207,6 +258,7 @@ const conversateWithAssistant = async (req, res) => {
 
             const conversationResponse = await _conversationHelper(
                 user,
+                event,
                 assistantId,
                 req.body?.prompt
             )
@@ -216,6 +268,7 @@ const conversateWithAssistant = async (req, res) => {
 
         const conversationResponse = await _conversationHelper(
             user,
+            event,
             event.assistantId,
             req.body?.prompt
         )
@@ -229,5 +282,6 @@ const conversateWithAssistant = async (req, res) => {
 }
 
 module.exports = {
-    conversateWithAssistant
+    conversateWithAssistant,
+    getUserChat
 }

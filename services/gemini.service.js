@@ -97,8 +97,8 @@ const chatWithGeminiModel = async (req, res) => {
 
             const promptText = "Given " + event?.eventName + " as event name and " + event.eventDescription + " as event description" +
                 " and " + event.formGoal + " as goal for the feedback form. Given these things you have to" +
-                " generate a set of questions (atleast 7) that will be asked from the event attendees. The" +
-                " user can ask you to add, remove and/or modify questions. Your responses should include the previous generated questions" +
+                " generate a set of questions (atleast 7) that will be asked from the event attendees. Make sure that each generated question includes" +
+                " the event name. The user can ask you to add, remove and/or modify questions. Your responses should include the previous generated questions" +
                 " (if there are any) + the newly generated questions and nothing else like affirmations or acknowledgement. I am repeating," +
                 " please include previous generated questions if there are any and donot skip them. If the user says \"FINISH\". Please reply" +
                 " with \"FINISH\" as well, which marks the end of the conversation so do not respond to any future questions and just" +
