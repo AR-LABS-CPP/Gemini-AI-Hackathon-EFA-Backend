@@ -7,6 +7,9 @@ const fs = require("fs")
 const geminiModel = require("../llms/gemini.llm")
 const chatHistoryModel = require("../models/chatHistory.model")
 const analysisModel = require("../models/analysis.model")
+const { generateResponse } = require("./gemini.service")
+const { generateNewSummary } = require("./summary.service")
+const SummaryModel = require("../models/summary.model")
 
 const _createNewThreadForUser = async (user) => {
     try {
@@ -120,13 +123,8 @@ const _addMessageInThreadAndRun = async (user, event, promptText, threadId, assi
         if(assistantResponse?.content[0]?.text?.value?.includes("Thank you very much for the feedback")) {
             const answers = assistantResponse?.content[0]?.text?.value?.split("Thank you very much for the feedback")[1]
 
-            const chat = geminiModel.startChat({
-                generationConfig: {
-                    maxOutputTokens: 512
-                }
-            })
-    
-            const result = await chat.sendMessage(
+            const response = await generateResponse(
+                [],
                 "Given these " + answers + " as questions and their answers." +
                 " Can you perform sentiment analysis of each answer and append " +
                 " the sentiment after each answer as [SENTIMENT] where sentiment " +
@@ -134,17 +132,31 @@ const _addMessageInThreadAndRun = async (user, event, promptText, threadId, assi
                 " any affirmations or acknowledgement and return the response in this " +
                 " format: QUESTION: question-text\nANSWER: answer-text [SENTIMENT]\n\n"
             )
-            const response = await result.response
 
             // Store the answers and their sentiment in the database
             await analysisModel.create({
                 eventId: event._id,
                 userId: user._id,
-                answersWithSentiment: response.text()
+                answersWithSentiment: response
             })
 
+            const eventSummary = await SummaryModel.findOne({
+                eventId: event._id
+            })
+
+            const generatedSummary = await generateNewSummary(
+                event.eventName,
+                eventSummary?.summarySoFar,
+                response
+            )
+
+            eventSummary.previousSummary = eventSummary.summarySoFar ?? eventSummary.previousSummary
+            eventSummary.summarySoFar = generatedSummary ?? eventSummary.summarySoFar
+
             user.finalAnswers = answers
+
             await user.save()
+            await eventSummary.save()
         }
 
         return assistantResponse?.content[0]?.text?.value ?? "Failed to generate response, please try again"
@@ -256,6 +268,13 @@ const conversateWithAssistant = async (req, res) => {
             event.assistantId = assistantId
             await event.save()
 
+            await SummaryModel.create({ eventId: event._id })
+
+            if(!user.eventId) {
+                user.eventId = event._id
+                await user.save()
+            }
+
             const conversationResponse = await _conversationHelper(
                 user,
                 event,
@@ -264,6 +283,11 @@ const conversateWithAssistant = async (req, res) => {
             )
 
             return res.status(200).send({ response: conversationResponse })
+        }
+
+        if(!user.eventId) {
+            user.eventId = event._id
+            await user.save()
         }
 
         const conversationResponse = await _conversationHelper(

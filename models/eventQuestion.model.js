@@ -9,6 +9,10 @@ const EventQuestion = new mongoose.Schema({
     questions: {
         type: String,
         required: true
+    },
+    questionCount: {
+        type: Number,
+        default: 0
     }
 })
 

@@ -4,7 +4,8 @@ const {
     chatForEventWithModel,
     getSpecificEvent,
     getAllEvents,
-    getGeneratedQuestionsForEvent
+    getGeneratedQuestionsForEvent,
+    getEventSummary
 } = require("../services/organizer.service")
 
 const router = require("express").Router()
@@ -20,5 +21,7 @@ router.get("/events/:eventId/questions", getGeneratedQuestionsForEvent)
 router.post("/:userId/events/:eventId/conversate", chatForEventWithModel)
 
 router.get("/:userId/events/:eventId/chat", getUserChat)
+
+router.get("/:userId/events/:eventId/summary", getEventSummary)
 
 module.exports = router

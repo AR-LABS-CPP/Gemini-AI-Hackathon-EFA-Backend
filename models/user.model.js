@@ -10,6 +10,10 @@ const UserModel = new mongoose.Schema({
     threadId: {
         type: String
     },
+    eventId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Event"
+    },
     finalAnswers: {
         type: String
     }

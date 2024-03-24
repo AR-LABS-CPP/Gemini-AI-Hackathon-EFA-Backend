@@ -14,4 +14,4 @@ const AnalysisModel = new mongoose.Schema({
     }
 })
 
-module.exports = mongoose.model("AnalysisModel", AnalysisModel)
+module.exports = mongoose.model("Analysis", AnalysisModel)

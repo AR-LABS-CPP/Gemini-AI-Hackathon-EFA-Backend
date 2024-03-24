@@ -16,12 +16,12 @@ const generateResponse = async (history, promptText) => {
 
         const result = await chat.sendMessage(promptText)
         const response = await result.response
-
+        
         return response.text()
     }
     catch (err) {
         console.debug(err)
-        throw new Error("Error occurred while generating model response")
+        return "Failed to generate response, please try again"
     }
 }
 
@@ -46,7 +46,8 @@ const saveChatHistory = async (
 
             await EventQuestionModel.create({
                 eventId,
-                questions: questions[0].text
+                questions: questions[0].text,
+                questionCount: questions[0]?.text?.split("\n")?.length
             })
         }
 
@@ -110,12 +111,14 @@ const chatWithGeminiModel = async (req, res) => {
 
             const modelResponse = await generateResponse([], promptText)
 
-            await saveChatHistory(
-                req.params?.eventId,
-                req.params?.userId,
-                promptText,
-                modelResponse
-            )
+            if(modelResponse != "Failed to generate response, please try again") {
+                await saveChatHistory(
+                    req.params?.eventId,
+                    req.params?.userId,
+                    promptText,
+                    modelResponse
+                )
+            }
 
             return res.status(200).send({ response: modelResponse })
         }
@@ -123,12 +126,14 @@ const chatWithGeminiModel = async (req, res) => {
         const transformedChatHistory = transformChatHistory(chatHistory)
         const modelResponse = await generateResponse(transformedChatHistory, req.body?.prompt)
 
-        await saveChatHistory(
-            req.params?.eventId,
-            req.params?.userId,
-            req.body?.prompt,
-            modelResponse
-        )
+        if(modelResponse != "Failed to generate response, please try again") {
+            await saveChatHistory(
+                req.params?.eventId,
+                req.params?.userId,
+                req.body?.prompt,
+                modelResponse
+            )
+        }
 
         return res.status(200).send({ response: modelResponse })
     }
@@ -139,5 +144,6 @@ const chatWithGeminiModel = async (req, res) => {
 }
 
 module.exports = {
-    chatWithGeminiModel
+    chatWithGeminiModel,
+    generateResponse
 }
