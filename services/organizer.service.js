@@ -153,9 +153,9 @@ const getEventSummary = async (req, res) => {
                 }
             }
         ])
-        
+
         return res.status(200).send({
-            summarySoFar: eventSummary.summarySoFar,
+            summarySoFar: eventSummary?.summarySoFar,
             stats: percentagesAndCounts[0]
         })
     }
